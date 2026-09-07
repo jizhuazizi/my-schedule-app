@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#ffffff" />
+  <title>我的事项</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="settings.css" />
+  <style>.check.completed{background:#25b86a;border-color:#25b86a;color:#fff;font-weight:800;box-shadow:0 0 0 4px #25b86a22,0 2px 5px #25b86a55;transform:scale(1.04)}.delete-inline{width:30px;height:30px;border:0;border-radius:9px;background:transparent;color:#d45151;display:grid;place-items:center;cursor:pointer;flex-shrink:0}.delete-inline svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.delete-inline:hover{background:#fff0f0;color:#b93636}.voice-fab{position:fixed;right:188px;bottom:32px;border:1px solid #b9d8f4;background:#fff;color:#1687e8;border-radius:16px;padding:14px 18px;font-size:15px;font-weight:700;box-shadow:0 8px 20px #1687e822;cursor:pointer;touch-action:none}.voice-fab:hover,.voice-fab.recording{background:#e8f5ff;border-color:#1687e8}.voice-fab.recording{color:#25b86a}@media(max-width:700px){.voice-fab{right:150px;bottom:18px;padding:14px 12px;font-size:14px}}</style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar" aria-label="主菜单">
+      <div class="brand"><span class="brand-mark">✓</span><span>我的日程</span></div>
+      <nav id="nav" class="nav-list"></nav>
+      <div class="sidebar-note">只记录，不替你安排。</div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="icon-button menu-toggle" id="menuToggle" aria-label="打开或收起菜单"><span></span><span></span><span></span></button>
+        <div class="topbar-title" id="topbarTitle">我的事项</div>
+        <button class="icon-button search-toggle" id="searchToggle" aria-label="搜索">⌕</button>
+      </header>
+
+      <section class="content" id="content"></section>
+    </main>
+  </div>
+
+  <div class="modal-backdrop hidden" id="modalBackdrop">
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal-header">
+        <button class="icon-button close-modal" id="closeModal" aria-label="关闭">×</button>
+        <h2 id="modalTitle">新事项</h2>
+        <button class="confirm-button" id="saveTask" aria-label="保存">✓</button>
+      </div>
+      <form id="taskForm" class="task-form">
+        <details id="voiceTranscriptPanel" class="hidden"><summary>语音识别原文</summary><p id="voiceTranscriptText"></p><p class="reminder-help">当前为普通话语音试用，内容可能识别不完整，请检查下方字段后保存。</p></details>
+        <label class="field-label">标题<input id="titleInput" maxlength="200" required placeholder="例如：心理学大项目" /></label>
+        <label class="field-label">副标题<input id="subtitleInput" maxlength="300" placeholder="一句简短的补充说明" /></label>
+
+        <div class="section-label">日期与时间</div>
+        <div class="setting-card">
+          <div class="setting-row"><div><span class="setting-icon">▣</span><span>截止日期</span><small id="dateValue">未设置</small></div><input type="checkbox" id="dateEnabled" class="switch" /></div>
+          <div class="control-panel hidden" id="datePanel"><input type="date" id="dateInput" /></div>
+          <div class="setting-row"><div><span class="setting-icon">◷</span><span>截止时间</span><small id="timeValue">未设置</small></div><input type="checkbox" id="timeEnabled" class="switch" /></div>
+          <div class="control-panel hidden" id="timePanel"><input type="time" id="timeInput" step="300" /></div>
+        </div>
+
+        <div class="section-label">提醒</div>
+        <p class="reminder-help">截止时间以西雅图为准。仅有日期时，提醒按当天 09:00 计算；不改变事项的截止日期。网页需保持打开，休眠期间无法准时提醒，恢复后补提醒。</p>
+        <div class="notification-actions"><button type="button" id="enableNotifications">开启系统通知</button><button type="button" id="testReminder">测试提醒</button></div>
+        <p id="notificationStatus" role="status" class="reminder-help">系统通知需要浏览器授权；网页内弹窗无需授权。</p>
+        <div class="setting-card">
+          <div class="setting-row"><div><span class="setting-icon">♧</span><span>提醒</span><small id="reminderValue">关闭</small></div><input type="checkbox" id="reminderEnabled" class="switch" /></div>
+          <div class="control-panel hidden" id="reminderPanel"><div class="reminder-options"><label><input type="checkbox" class="reminder-choice" value="one_day"> 截止前一天</label><label><input type="checkbox" class="reminder-choice" value="half_day"> 截止前半天</label><label><input type="checkbox" class="reminder-choice" value="at_due"> 截止那一刻</label></div><div class="custom-reminder-row"><input type="number" id="customReminderAmount" min="1" max="999" value="1" aria-label="提前数量" /><select id="customReminderUnit" aria-label="提醒单位"><option value="minute">分钟</option><option value="hour">小时</option><option value="day">天</option></select><span>前提醒</span><button type="button" id="addCustomReminder">添加自定义提醒</button></div><div id="customReminderList"></div></div>
+        </div>
+
+        <div class="section-label">重复</div>
+        <div class="setting-card">
+          <button type="button" class="setting-row clickable repeat-toggle" id="repeatRow" aria-expanded="false"><div><span class="setting-icon">↻</span><span>重复</span><small id="repeatValue">不重复</small></div><span class="chevron">›</span></button>
+          <div class="control-panel hidden" id="repeatPanel">
+            <div class="repeat-grid" id="repeatChoices">
+              <button type="button" data-repeat="none" class="repeat-choice selected">不重复</button>
+              <button type="button" data-repeat="daily" class="repeat-choice">每天</button>
+              <button type="button" data-repeat="weekly" class="repeat-choice">每周</button>
+              <button type="button" data-repeat="monthly" class="repeat-choice">每月</button>
+            </div>
+            <div id="weeklyPanel" class="hidden weekday-panel"><span>选择星期</span><div class="weekday-grid"></div></div>
+            <div id="monthlyPanel" class="hidden"><label class="field-label">每月的第一个<select id="monthlyWeekday"><option value="1">星期一</option><option value="2">星期二</option><option value="3">星期三</option><option value="4">星期四</option><option value="5">星期五</option><option value="6">星期六</option><option value="7">星期日</option></select></label></div>
+            <p class="reminder-help">完成本次后，自动创建下一次，并沿用提醒设置。每次独立勾选；结束日期为空表示持续重复。</p>
+            <label class="field-label compact hidden" id="repeatEndLabel">结束日期<input type="date" id="repeatEndInput" /></label>
+          </div>
+        </div>
+
+        <div class="form-actions"><button type="button" class="delete-button hidden" id="deleteTask">删除事项</button><span class="form-hint" id="formHint"></span></div>
+      </form>
+    </section>
+  </div>
+
+  <div class="toast" id="toast" role="status"></div>
+  <div id="reminderAlerts" aria-label="事项提醒"></div>
+  <style>
+    #reminderAlerts{position:fixed;right:20px;top:85px;z-index:30;width:min(360px,calc(100vw - 40px));max-height:75vh;overflow:auto}
+    .reminder-popup{background:white;border:2px solid #25b86a;border-radius:14px;padding:18px;margin-bottom:12px;box-shadow:0 8px 24px #10233333}.reminder-popup p{font-size:14px;overflow-wrap:anywhere}.reminder-popup button{background:#25b86a;color:white;border:0;padding:8px 16px;border-radius:8px;cursor:pointer}
+    .reminder-help{font-size:13px;color:#657689;line-height:1.6}.notification-actions{display:flex;gap:10px}.notification-actions button{border:1px solid #dbe4ec;background:white;color:#1687e8;padding:8px 12px;border-radius:8px;cursor:pointer}
+  </style>
+  <script src="app.js"></script>
+  <script src="reminder-ui.js"></script>
+  <script src="repeat.js"></script>
+  <script src="settings.js"></script>
+  <script src="reminders.js"></script>
+</body>
+</html>

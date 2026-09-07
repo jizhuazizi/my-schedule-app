@@ -1,0 +1,25 @@
+const assert=require('node:assert/strict');
+const vm=require('node:vm');
+const fs=require('node:fs');
+let tasks=[], fired=[], saved={};
+const element={addEventListener(){}};
+const ctx=vm.createContext({Intl,Date,Number,JSON,console,document:{getElementById:()=>element,addEventListener(){}},window:{addEventListener(){}},$:()=>element,syncDateControls(){},setInterval(){},loadTasks:()=>tasks,localStorage:{getItem:k=>saved[k],setItem:(k,v)=>saved[k]=v}});
+vm.runInContext(fs.readFileSync(__dirname+'/reminders.js','utf8'),ctx);
+ctx.showReminder=t=>fired.push(t.id);
+const instant=(date,time)=>ctx.deadlineInstant(date,time);
+assert.equal(new Date(instant('2026-09-20','19:00')).toISOString(),'2026-09-21T02:00:00.000Z');
+assert.equal(new Date(instant('2026-12-20','19:00')).toISOString(),'2026-12-21T03:00:00.000Z');
+assert.ok(Number.isNaN(instant('2026-03-08','02:30')));
+const task={id:'one',title:'测试',dueDate:'2026-09-20',dueTime:'19:00',reminder:{enabled:true,kind:'custom',amount:3,unit:'hour'}};
+const at=instant(task.dueDate,task.dueTime)-3*3600000;
+assert.equal(ctx.reminderInstant(task),at);
+assert.equal(ctx.reminderInstant({...task,dueTime:'',reminder:{enabled:true,kind:'at_due'}}),instant(task.dueDate,'09:00'));
+tasks=[task];ctx.checkReminders(at-1);assert.equal(fired.length,0);
+ctx.checkReminders(at);ctx.checkReminders(at+1000);assert.deepEqual(fired,['one']);
+// Reloading the checker still respects the persisted receipt.
+ctx.checkReminders(at+300000);assert.equal(fired.length,1);
+task.dueTime='20:00';ctx.checkReminders(at+3600000);assert.equal(fired.length,2);
+task.completedAt='2026-09-20';task.dueTime='21:00';ctx.checkReminders(at+7200000);assert.equal(fired.length,2);
+task.completedAt=null;task.reminder.enabled=false;ctx.checkReminders(at+7200000);assert.equal(fired.length,2);
+tasks=[];ctx.checkReminders(at+7200000);assert.equal(fired.length,2);
+console.log('PASS: Seattle DST, offsets, date-only, due trigger, deduplication, edits, completed/disabled/deleted tasks');
